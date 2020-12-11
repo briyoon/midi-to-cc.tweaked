@@ -3,7 +3,8 @@
 Used https://minecraft.gamepedia.com/Note_Block to find noteblock ranges and sound names!
 
 # Problems
-- I was using metacommand = 3 to find tracks however this is not it. musescore is able to tell the different tracks apart. Maybe look at status messages? I see there are channels assigned to events too but in musescore for rickroll3.mid, DRUMS and bongo are on the same channel but different staffs/tracks.
+- Reliably finding tracks
+  - I was using metacommand = 3 to find tracks however this is not it. musescore is able to tell the different tracks apart. Maybe look at status messages? I see there are channels assigned to events too but in musescore for rickroll3.mid, DRUMS and bongo are on the same channel but different staffs/tracks.
   - Maybe I can search for both metacommand and channel number?
 - Accuratly finding ranges for tracks.
   - (Most) MineCraft sounds can only play 2 octaves. I need to figure out a way to reliably find the range and adjust properly.
