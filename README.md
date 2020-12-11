@@ -8,6 +8,7 @@ Used https://minecraft.gamepedia.com/Note_Block to find noteblock ranges and sou
   - Maybe I can search for both metacommand and channel number?
 - Accuratly finding ranges for tracks.
   - (Most) MineCraft sounds can only play 2 octaves. I need to figure out a way to reliably find the range and adjust properly.
+- Clean up my messy code lol
 
 # Future Features
 
