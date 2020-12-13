@@ -1,4 +1,5 @@
 import midi
+from generalMidi import generalMidiInstList, percussionMidiInstList
 
 
 # Object for each midiEvent
@@ -15,7 +16,7 @@ class MidiMeta:
     def __init__(self, ticksPerBeat, timeSig, BPM, MSPB):
         self.timeSig = timeSig
         self.BPM = BPM
-        self.ticksPerBeat = ticksPerBeat
+        self.TPB = ticksPerBeat
         self.MSPB = MSPB
 
 
@@ -43,48 +44,77 @@ def scrapeMeta(pattern):
         print("attribute error")
 
 
-# grabs track names by searching for meta command = 3
-# for some reason end of track and start of track commands also have meta command = 3,
-# so i filter them out by searching for length too
-
-# meta command 3 is not he way to search for tracks properly... doesnt work on rickroll2.mid
-# However, musescore is able to tell the different tracks apart. Maybe look at status messages?
-# I see there are channels assigned to events too but in musescore for rickroll3.mid, DRUMS and bongo are on the same channel but different staffs/tracks
+# scrapes tracks from midi file
 def scrapeTracks(pattern):
-    instruments = []
-    for track in pattern:
-        try:
-            for x in track:
-                if len(track) > 2 and x.metacommand == 3:
-                    instruments.append(x.text)
-        except AttributeError:
-            pass
-    return instruments
+    midiTracks = {}
+    drumNum = 1
+    # searches each track
+    for track in range(len(pattern)):
+        detectNote = False
+        detectProgram = False
+        detectPercussion = False
+        instrumentName = []
+        # searches each event in track
+        for x in pattern[track]:
+            if not detectNote and "Note On" in x.name:
+                detectNote = True
+            elif not detectProgram and "Program Change" in x.name:
+                detectProgram = True
+                # grabs instrument name from general midi list
+                # (exmaple: https://jazz-soft.net/demo/GeneralMidi.html)
+                instrumentName = generalMidiInstList[x.value]
+            # marks a track as a percussion track
+            # which has to use a different midi list found here
+            # (https://jazz-soft.net/demo/GeneralMidiPerc.html)
+            if hasattr(x, "channel") and x.channel == 9:
+                detectPercussion = True
+
+        # if track has a note in it, print info about track
+        # it also saves it to mitiTracks dict with proper naming
+        if detectNote:
+            # print(f"Detected note in track {track}")
+            # if percussion track, name it drums
+            # has a counter to adjust for multiple drum tracks
+            if detectPercussion:
+                midiTracks[f"Drums {drumNum}"] = pattern[track]
+                drumNum += 1
+                # print(f"    Track {track} is a drum track")
+            else:
+                # if instrument change detected,
+                # print instrument name and save to midiTracks
+                if detectProgram:
+                    midiTracks[instrumentName] = pattern[track]
+                    # print(f"    Track {track}'s name is {instrumentName}")
+                # otherwise if no instrument change detected,
+                # grab last track name and append bass onto it
+                # then save to midiTracks
+                # (most likly solution, needs more testing)
+                else:
+                    midiTracks[[*midiTracks][len(midiTracks) - 1] + " (bass)"] = pattern[track]
+                    # print(f"    No program change in track {track} deteced (usually means its the bass part of the last track)")
+                    # print(f"    Track {track}'s name is {[*midiTracks][track-1] + ' (bass)'}")
+    return midiTracks
 
 
 # Loads all the midi events from each instrument track into an array
 def getMidiEvents(instruments):
     instrumentData = {}
     for instrument in instruments:
-        for track in pattern:
+        instrumentName = instrument
+        instrument = instruments[instrument]
+        tempData = []
+        for x in instrument:
             try:
-                if track[0].metacommand == 3 and track[0].text.lower() == instrument.split(":")[0]:
-                    tempData = []
-                    for x in track:
-                        try:
-                        # The way I scraped events was if the midi event was "Note On",
-                        # to pass args to fill out the whole midiEventObj.
-                            if x.name == "Note On":
-                                tempData.append(MidiEvent(x.name, x.tick, x.velocity, x.pitch))
-                            else:
-                                # Otherwise I just saved the ticks inbetween events as objects without velocity or pitch.
-                                tempData.append(MidiEvent(x.name, x.tick))
-                        except AttributeError:
-                            print("skipped Index")
-                    instrumentData[instrument] = tempData
-                    print("")
+            # The way I scraped events was if the midi event was "Note On",
+            # to pass args to fill out the whole midiEventObj.
+                if x.name == "Note On":
+                    tempData.append(MidiEvent(x.name, x.tick, x.velocity, x.pitch))
+                else:
+                    # Otherwise I just saved the ticks inbetween events as objects without velocity or pitch.
+                    tempData.append(MidiEvent(x.name, x.tick))
             except AttributeError:
-                print("Skipped track")
+                print("skipped Index")
+        instrumentData[instrumentName] = tempData
     return instrumentData
 
 
@@ -92,27 +122,29 @@ def getMidiEvents(instruments):
 def translateMidi(instrumentMidi):
     instrumentLua = []
     for instrument in instrumentMidi:
+        instrumentName = instrument
+        instrument = instrumentMidi[instrument]
         luaCode = []
         extraTicks = 0
-        for event in instrumentMidi[instrument]:
+        for event in instrument:
             if event.eventName != "Note On":
                 extraTicks += event.ticks
             else:
-                minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrument.split(':')[1]]*12)
-                sleep = round((event.ticks + extraTicks) / meta.ticksPerBeat / (meta.BPM/60), 8)
+                minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrumentName]*12)
+                sleep = round((event.ticks + extraTicks) / meta.TPB / (meta.BPM/60), 8)
                 # This while loop checks if a note in a chord is just below the 2 octave range and moves it up an octave.
                 # This is technically not the same chord and is called an inverted chord but its fine for what you need.
                 while minecraftPitch < 0:
                     minecraftPitch += 12
                 if sleep != 0 and event.velocity != 0:
                     luaCode.append(f"os.sleep({sleep})\n")
-                    luaCode.append(f"speaker.playNote('{instrument.split(':')[1]}', {3/127 * event.velocity}, {minecraftPitch})\n")
+                    luaCode.append(f"speaker.playNote('{instrumentName}', {3/127 * event.velocity}, {minecraftPitch})\n")
                     extraTicks = 0
                 elif 3/127 * event.velocity == 0:
                     extraTicks += event.ticks
                     continue
                 else:
-                    luaCode.append(f"speaker.playNote('{instrument.split(':')[1]}', {3/127 * event.velocity}, {minecraftPitch})\n")
+                    luaCode.append(f"speaker.playNote('{instrumentName}', {3/127 * event.velocity}, {minecraftPitch})\n")
         instrumentLua.append(luaCode)
     return instrumentLua
 
@@ -166,7 +198,7 @@ def merge(mergeA, mergeB):
 # I included 3 different midi files, I found that this thrid one worked the best
 global noteBlockRangeStart
 noteBlockRangeStart = {
-    "bass": -1,
+    "bass": 1,
     "snare": 2,
     "hat": 0,
     "bd": 0,
@@ -181,28 +213,45 @@ noteBlockRangeStart = {
     "bit": 2,
     "banjo": 2,
     "pling": 2,
-    "harp": 2
+    "harp": 3
 }
 global pattern
 global meta
 midiName = input("Input file name (must be in the same dir): ")
+# midiName = "sample_midi/rickroll3.mid"
 pattern = midi.read_midifile(midiName)
 meta = scrapeMeta(pattern)
 tracks = scrapeTracks(pattern)
 print(f"Found {len(tracks)} tracks:")
+
 for x in tracks:
     print("    " + x)
-convertWhich = input("Please type which tracks you would like to convert with a minecraft sound:\nExample: 'piano:harp sax:bit'\n(for a list of minecraft sound names please go to https://minecraft.gamepedia.com/Note_Block)\n").lower()
+convertWhich = input(
+    "Please type which tracks you would like to convert with a minecraft sound:\n\
+Example: 'piano:harp brass-section:bit'\n(for a list of minecraft sound names please go to\
+https://minecraft.gamepedia.com/Note_Block)\nPLEASE DO NOT CONVERT A DRUM TRACK YET\n").lower()
+# convertWhich = "electric-piano-2:pling test:test2"
 convertWhich = convertWhich.split()
 for x in range(len(convertWhich)):
     convertWhich[x] = convertWhich[x].replace("-", " ")
-instrumentMidi = getMidiEvents(convertWhich)
+    convertWhich[x] = convertWhich[x].split(":")
+convertTracks = {}
+
+for x in tracks:
+    for y in range(len(convertWhich)):
+        if x in convertWhich[y][0]:
+            convertTracks[convertWhich[y][1]] = tracks[x]
+
+instrumentMidi = getMidiEvents(convertTracks)
+
 luaCommands = []
 luaCommands = translateMidi(instrumentMidi)
+
 merged = luaCommands[0]
 for x in range(1, len(luaCommands)):
     merged = merge(merged, luaCommands[x])
-with open(f"{midiName.replace('.mid', '')}.lua", "w+") as f:
+
+with open("merged.lua", "w+") as f:
     f.write("local speaker = peripheral.find('speaker')\n\n")
     for x in merged:
         f.write(x + "\n")
