@@ -1,5 +1,7 @@
 # midi-to-cc.tweaked
 
+[![Alt text](https://img.youtube.com/vi/QLyWg_v8z5U/0.jpg)](https://www.youtube.com/watch?v=QLyWg_v8z5U)
+
 Used https://minecraft.gamepedia.com/Note_Block to find noteblock ranges and sound names!
 
 # Installation
