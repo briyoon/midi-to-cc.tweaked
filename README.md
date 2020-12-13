@@ -2,10 +2,18 @@
 
 Used https://minecraft.gamepedia.com/Note_Block to find noteblock ranges and sound names!
 
-# Problems
-- Reliably finding tracks
-  - I was using metacommand = 3 to find tracks however this is not it. musescore is able to tell the different tracks apart. Maybe look at status messages? I see there are channels assigned to events too but in musescore for rickroll3.mid, DRUMS and bongo are on the same channel but different staffs/tracks.
-  - Maybe I can search for both metacommand and channel number?
+# Installation
+To use this program make sure to install python-midi library
+
+# Usage
+1. Type Path to midi file
+2. Input instruments you want to convert
+   - I recomend opening the midi file in a midi viewer such as Musescore first to figure out which tracks you want to convert
+3. *(Hopefully)* Profit!
+# ToDo
+- ~~Reliably finding tracks~~
+  - ~~I was using metacommand = 3 to find tracks however this is not it. musescore is able to tell the different tracks apart. Maybe look at status messages? I see there are channels assigned to events too but in musescore for rickroll3.mid, DRUMS and bongo are on the same channel but different staffs/tracks.~~
+  - ProgramChangeEvent is the event that lest you know there is an instrument change!
 - Accuratly finding ranges for tracks.
   - (Most) MineCraft sounds can only play 2 octaves. I need to figure out a way to reliably find the range and adjust properly.
 - Clean up my messy code lol
