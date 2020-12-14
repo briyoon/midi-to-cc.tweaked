@@ -4,11 +4,12 @@ from generalMidi import generalMidiInstList, percussionMidiInstList
 
 # Object for each midiEvent
 class MidiEvent:
-    def __init__(self, eventName, ticks, velocity=0, pitch=0):
+    def __init__(self, eventName, ticks, velocity=0, pitch=0, bpm=0):
         self.eventName = eventName
         self.velocity = velocity
         self.pitch = pitch
         self.ticks = ticks
+        self.bpm = bpm
 
 
 # objext for midi file meta
@@ -52,6 +53,7 @@ def scrapeTracks(pattern):
     for track in range(len(pattern)):
         detectNote = False
         detectProgram = False
+        detectName = False
         detectPercussion = False
         instrumentName = []
         # searches each event in track
@@ -62,7 +64,16 @@ def scrapeTracks(pattern):
                 detectProgram = True
                 # grabs instrument name from general midi list
                 # (exmaple: https://jazz-soft.net/demo/GeneralMidi.html)
-                instrumentName = generalMidiInstList[x.value]
+                if generalMidiInstList[x.value] in midiTracks.keys():
+                    dupe = 1
+                    for each in midiTracks.keys():
+                        if each == generalMidiInstList[x.value]:
+                            dupe += 1
+                    instrumentName = generalMidiInstList[x.value] + f" {dupe}"
+                else:
+                    instrumentName = generalMidiInstList[x.value]
+                if not detectName and hasattr(x, "text"):
+                    detectName = x.text
             # marks a track as a percussion track
             # which has to use a different midi list found here
             # (https://jazz-soft.net/demo/GeneralMidiPerc.html)
@@ -109,6 +120,8 @@ def getMidiEvents(instruments):
             # to pass args to fill out the whole midiEventObj.
                 if x.name == "Note On":
                     tempData.append(MidiEvent(x.name, x.tick, x.velocity, x.pitch))
+                elif x.name == "Set Tempo":
+                    tempData.append(MidiEvent(x.name, x.tick, bpm=x.bpm))
                 else:
                     # Otherwise I just saved the ticks inbetween events as objects without velocity or pitch.
                     tempData.append(MidiEvent(x.name, x.tick))
@@ -127,6 +140,8 @@ def translateMidi(instrumentMidi):
         luaCode = []
         extraTicks = 0
         for event in instrument:
+            # if event.eventName == "Set Tempo":
+            #     meta.BPM = event.bpm
             if event.eventName != "Note On":
                 extraTicks += event.ticks
             else:
@@ -138,13 +153,13 @@ def translateMidi(instrumentMidi):
                     minecraftPitch += 12
                 if sleep != 0 and event.velocity != 0:
                     luaCode.append(f"os.sleep({sleep})\n")
-                    luaCode.append(f"speaker.playNote('{instrumentName}', {3/127 * event.velocity}, {minecraftPitch})\n")
+                    luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
                     extraTicks = 0
                 elif 3/127 * event.velocity == 0:
                     extraTicks += event.ticks
                     continue
                 else:
-                    luaCode.append(f"speaker.playNote('{instrumentName}', {3/127 * event.velocity}, {minecraftPitch})\n")
+                    luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
         instrumentLua.append(luaCode)
     return instrumentLua
 
@@ -163,8 +178,8 @@ def merge(mergeA, mergeB):
     timeB = 0
     merged = []
     try:
-        while True:
-        # while indexA in range(len(mergeA)) and indexB in range(len(mergeB)):
+        # while True:
+        while indexA in range(len(mergeA)) or indexB in range(len(mergeB)):
             if "playNote" in mergeA[indexA]:
                 merged.append(mergeA[indexA])
                 indexA += 1
@@ -172,13 +187,13 @@ def merge(mergeA, mergeB):
                 merged.append(mergeB[indexB])
                 indexB += 1
             elif round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8) < round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8):
-                print(str(round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8)) + " is less then " + str(round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8)))
+                # print(str(round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8)) + " is less then " + str(round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8)))
                 merged.append(f"os.sleep({round(float(mergeA[indexA].strip('os.sleep()')) - float(timeA), 8)})")
                 timeB += float(mergeA[indexA].strip("os.sleep()")) - float(timeA)
                 timeA = 0
                 indexA += 1
             elif round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8) > round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8):
-                print(str(round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8)) + " is greater then " + str(round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8)))
+                # print(str(round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8)) + " is greater then " + str(round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8)))
                 merged.append(f"os.sleep({round(float(mergeB[indexB].strip('os.sleep()')) - float(timeB), 8)})")
                 timeA += float(mergeB[indexB].strip("os.sleep()")) - float(timeB)
                 indexB += 1
@@ -195,7 +210,6 @@ def merge(mergeA, mergeB):
 
 
 # Using this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
-# I included 3 different midi files, I found that this thrid one worked the best
 global noteBlockRangeStart
 noteBlockRangeStart = {
     "bass": 1,
@@ -203,7 +217,7 @@ noteBlockRangeStart = {
     "hat": 0,
     "bd": 0,
     "bell": 4,
-    "flute": 4,
+    "flute": 3,
     "chime": 4,
     "guitar": 1,
     "xylophone": 4,
@@ -217,7 +231,7 @@ noteBlockRangeStart = {
 }
 global pattern
 global meta
-midiName = input("Input file name (must be in the same dir): ")
+midiName = input("Input file path: ")
 # midiName = "sample_midi/rickroll3.mid"
 pattern = midi.read_midifile(midiName)
 meta = scrapeMeta(pattern)
@@ -235,11 +249,11 @@ convertWhich = convertWhich.split()
 for x in range(len(convertWhich)):
     convertWhich[x] = convertWhich[x].replace("-", " ")
     convertWhich[x] = convertWhich[x].split(":")
-convertTracks = {}
 
+convertTracks = {}
 for x in tracks:
     for y in range(len(convertWhich)):
-        if x in convertWhich[y][0]:
+        if x == convertWhich[y][0]:
             convertTracks[convertWhich[y][1]] = tracks[x]
 
 instrumentMidi = getMidiEvents(convertTracks)
@@ -251,7 +265,7 @@ merged = luaCommands[0]
 for x in range(1, len(luaCommands)):
     merged = merge(merged, luaCommands[x])
 
-with open("merged.lua", "w+") as f:
+with open(f"{midiName.replace('.mid', '.lua')}", "w+") as f:
     f.write("local speaker = peripheral.find('speaker')\n\n")
     for x in merged:
         f.write(x + "\n")
