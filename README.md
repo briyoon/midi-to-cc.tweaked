@@ -5,7 +5,8 @@
 Used https://minecraft.gamepedia.com/Note_Block to find noteblock ranges and sound names!
 
 # Installation
-To use this program make sure to install python-midi library
+To use this program make sure to install python-midi library with:
+- Python 3: https://github.com/vishnubob/python-midi/issues/184
 
 # Usage
 1. Type Path to midi file

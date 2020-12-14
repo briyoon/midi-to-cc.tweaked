@@ -4,3 +4,5 @@ sample_midi/babycold.mid
     choir-aahs:bell choir-aahs-2:guitar acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
 sample_midi/lastchristmas.mid
     acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
+sample_midi/bubbletea.mid
+    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
