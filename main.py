@@ -1,5 +1,6 @@
 import midi
 from generalMidi import generalMidiInstList, percussionMidiInstList, noteBlockRangeStart
+from midi_timings import getEventTime
 
 
 # objext for midi file meta
@@ -105,12 +106,15 @@ def translateMidi(instrumentMidi):
         instrument = instrumentMidi[instrument]
         luaCode = []
         extraTicks = 0
+        sleepTemp = 0
         for event in instrument:
             if event.name != "Note On":
                 extraTicks += event.tick
             else:
                 minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrumentName]*12)
-                sleep = round((event.tick + extraTicks) / meta.TPB / (meta.BPM/60), 8)
+                # sleep = round((event.tick + extraTicks) / meta.TPB / (meta.BPM/60), 8)
+                sleep = getEventTime(pattern, event)
+
                 # This while loop checks if a note in a chord is just below the 2 octave range and moves it up an octave.
                 # This is technically not the same chord and is called an inverted chord but its fine for what you need.
                 while minecraftPitch < 0:
@@ -119,10 +123,11 @@ def translateMidi(instrumentMidi):
                 while minecraftPitch > 24:
                     minecraftPitch -= 12
                 # if there is sleep and note plays, write the sleep amount and note
-                if sleep != 0 and event.velocity != 0:
-                    luaCode.append(f"os.sleep({sleep})\n")
+                if sleep-sleepTemp != 0 and event.velocity != 0:
+                    luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})\n")
                     luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
                     extraTicks = 0
+                    sleepTemp = sleep
                 # if the note has no volume, add ticks
                 elif 3/127 * event.velocity == 0:
                     extraTicks += event.tick
@@ -181,10 +186,12 @@ def merge(mergeA, mergeB):
 # Using this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
 global pattern
 global meta
+# global tempoMap
 midiName = input("Input midi file path: ")
 pattern = midi.read_midifile(midiName)
 meta = scrapeMeta(pattern)
 tracks = scrapeTracks(pattern)
+# tempoMap = getTempoMap(pattern)
 print(f"Found {len(tracks)} tracks:")
 
 for x in tracks:

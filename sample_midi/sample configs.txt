@@ -2,15 +2,15 @@ sample_midi/never.mid
     acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
 sample_midi/babycold.mid
     choir-aahs:bell choir-aahs-2:guitar acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
-sample_midi/lastchristmas.mid
-    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
-sample_midi/bubbletea.mid
-    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
-sample_midi/demon.mid
-    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
-sample_midi/golden.mid
-    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
-sample_midi/dragon.mid
-    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
 sample_midi/wii.mid
     bright-acoustic-piano:harp bright-acoustic-piano-(bass):bass
+
+Almost any midi file that has just piano, like acoustic-grand-piano acoustic-grand-piano-(bass), can use harp for the first track and bass for the second.
+
+This goes for:
+sample_midi/lastchristmas.mid
+sample_midi/bubbletea.mid
+sample_midi/demon.mid
+sample_midi/golden.mid
+sample_midi/dragon.mid
+sample_midi/never.mid
