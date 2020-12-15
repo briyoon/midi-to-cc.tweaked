@@ -6,3 +6,11 @@ sample_midi/lastchristmas.mid
     acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
 sample_midi/bubbletea.mid
     acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
+sample_midi/demon.mid
+    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
+sample_midi/golden.mid
+    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
+sample_midi/dragon.mid
+    acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
+sample_midi/wii.mid
+    bright-acoustic-piano:harp bright-acoustic-piano-(bass):bass

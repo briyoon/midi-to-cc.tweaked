@@ -130,3 +130,22 @@ generalMidiInstList = [
 ]
 
 percussionMidiInstList = []
+
+noteBlockRangeStart = {
+    "bass": 1,
+    "snare": 2,
+    "hat": 0,
+    "bd": 0,
+    "bell": 4,
+    "flute": 4,
+    "chime": 4,
+    "guitar": 1,
+    "xylophone": 4,
+    "iron_xylophone": 2,
+    "cow_bell": 2,
+    "didgeridoo": 0,
+    "bit": 2,
+    "banjo": 2,
+    "pling": 2,
+    "harp": 3
+}

@@ -1,15 +1,5 @@
 import midi
-from generalMidi import generalMidiInstList, percussionMidiInstList
-
-
-# Object for each midiEvent
-class MidiEvent:
-    def __init__(self, eventName, ticks, velocity=0, pitch=0, bpm=0):
-        self.eventName = eventName
-        self.velocity = velocity
-        self.pitch = pitch
-        self.ticks = ticks
-        self.bpm = bpm
+from generalMidi import generalMidiInstList, percussionMidiInstList, noteBlockRangeStart
 
 
 # objext for midi file meta
@@ -107,30 +97,6 @@ def scrapeTracks(pattern):
     return midiTracks
 
 
-# Loads all the midi events from each instrument track into an array
-def getMidiEvents(instruments):
-    instrumentData = {}
-    for instrument in instruments:
-        instrumentName = instrument
-        instrument = instruments[instrument]
-        tempData = []
-        for x in instrument:
-            try:
-            # The way I scraped events was if the midi event was "Note On",
-            # to pass args to fill out the whole midiEventObj.
-                if x.name == "Note On":
-                    tempData.append(MidiEvent(x.name, x.tick, x.velocity, x.pitch))
-                elif x.name == "Set Tempo":
-                    tempData.append(MidiEvent(x.name, x.tick, bpm=x.bpm))
-                else:
-                    # Otherwise I just saved the ticks inbetween events as objects without velocity or pitch.
-                    tempData.append(MidiEvent(x.name, x.tick))
-            except AttributeError:
-                print("skipped Index")
-        instrumentData[instrumentName] = tempData
-    return instrumentData
-
-
 # trasnlate the midi code to lua
 def translateMidi(instrumentMidi):
     instrumentLua = []
@@ -140,24 +106,27 @@ def translateMidi(instrumentMidi):
         luaCode = []
         extraTicks = 0
         for event in instrument:
-            # if event.eventName == "Set Tempo":
-            #     meta.BPM = event.bpm
-            if event.eventName != "Note On":
-                extraTicks += event.ticks
+            if event.name != "Note On":
+                extraTicks += event.tick
             else:
                 minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrumentName]*12)
-                sleep = round((event.ticks + extraTicks) / meta.TPB / (meta.BPM/60), 8)
+                sleep = round((event.tick + extraTicks) / meta.TPB / (meta.BPM/60), 8)
                 # This while loop checks if a note in a chord is just below the 2 octave range and moves it up an octave.
                 # This is technically not the same chord and is called an inverted chord but its fine for what you need.
                 while minecraftPitch < 0:
                     minecraftPitch += 12
+                # also checks if the note is too high
+                while minecraftPitch > 24:
+                    minecraftPitch -= 12
+                # if there is sleep and note plays, write the sleep amount and note
                 if sleep != 0 and event.velocity != 0:
                     luaCode.append(f"os.sleep({sleep})\n")
                     luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
                     extraTicks = 0
+                # if the note has no volume, add ticks
                 elif 3/127 * event.velocity == 0:
-                    extraTicks += event.ticks
-                    continue
+                    extraTicks += event.tick
+                # else write the rest of the chord
                 else:
                     luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
         instrumentLua.append(luaCode)
@@ -210,29 +179,9 @@ def merge(mergeA, mergeB):
 
 
 # Using this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
-global noteBlockRangeStart
-noteBlockRangeStart = {
-    "bass": 1,
-    "snare": 2,
-    "hat": 0,
-    "bd": 0,
-    "bell": 4,
-    "flute": 3,
-    "chime": 4,
-    "guitar": 1,
-    "xylophone": 4,
-    "iron_xylophone": 2,
-    "cow_bell": 2,
-    "didgeridoo": 0,
-    "bit": 2,
-    "banjo": 2,
-    "pling": 2,
-    "harp": 3
-}
 global pattern
 global meta
-midiName = input("Input file path: ")
-# midiName = "sample_midi/rickroll3.mid"
+midiName = input("Input midi file path: ")
 pattern = midi.read_midifile(midiName)
 meta = scrapeMeta(pattern)
 tracks = scrapeTracks(pattern)
@@ -243,9 +192,7 @@ for x in tracks:
 convertWhich = input(
     "Please type which tracks you would like to convert with a minecraft sound:\n\
 Example: 'piano:harp brass-section:bit'\n(for a list of minecraft sound names please go to\
-https://minecraft.gamepedia.com/Note_Block)\nPLEASE DO NOT CONVERT A DRUM TRACK YET\n").lower()
-# convertWhich = "electric-piano-2:pling test:test2"
-convertWhich = convertWhich.split()
+https://minecraft.gamepedia.com/Note_Block)\nPLEASE DO NOT CONVERT A DRUM TRACK YET\n").lower().split()
 for x in range(len(convertWhich)):
     convertWhich[x] = convertWhich[x].replace("-", " ")
     convertWhich[x] = convertWhich[x].split(":")
@@ -256,10 +203,8 @@ for x in tracks:
         if x == convertWhich[y][0]:
             convertTracks[convertWhich[y][1]] = tracks[x]
 
-instrumentMidi = getMidiEvents(convertTracks)
-
 luaCommands = []
-luaCommands = translateMidi(instrumentMidi)
+luaCommands = translateMidi(convertTracks)
 
 merged = luaCommands[0]
 for x in range(1, len(luaCommands)):
@@ -269,4 +214,5 @@ with open(f"{midiName.replace('.mid', '.lua')}", "w+") as f:
     f.write("local speaker = peripheral.find('speaker')\n\n")
     for x in merged:
         f.write(x + "\n")
+    print(f"wrote to {midiName.replace('.mid', '.lua')}")
     f.close()
