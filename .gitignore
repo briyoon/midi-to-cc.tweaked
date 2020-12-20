@@ -2,3 +2,4 @@ venv
 __pycache__
 test
 sample_midi/*.lua
+logs.log

@@ -23,18 +23,24 @@ If you need help there are example configs in the sample_midi folder
   - I know rolled chords and complicated bass chords sound cool, but it really hurts the sound quality in game
 
 # ToDo
-- ~~Reliably finding tracks~~ done
+- ~~Reliably finding tracks (medium)~~ done
   - ~~I was using metacommand = 3 to find tracks however this is not it. musescore is able to tell the different tracks apart. Maybe look at status messages? I see there are channels assigned to events too but in musescore for rickroll3.mid, DRUMS and bongo are on the same channel but different staffs/tracks.~~
   - ProgramChangeEvent is the event that lets you know there is an instrument change!
 - Accuratly finding ranges for tracks. (easy)
   - (Most) MineCraft sounds can only play 2 octaves. I need to figure out a way to reliably find the range and adjust properly.
   - ~~Added a simple fix, will see if this is good enough~~ Wasn't good enough (as apparent in alliwant.mid)
-- ~~Allow tempo changes~~ done?
+- ~~Allow tempo changes (hard)~~ done
   - Found an example online of finding proper timing of events with chagnes in tempo and modified code to fit mine. However, this increased the conversion time from less then a second to several seconds due to the amount of for loops and iter() functions. Might try to fix
-- Add drum track support (easy but time consuming)
-- Fix merging tracks that don't end at the same time (easy im just lazy)
-- Look into fixing volume scale (easy)
-  - I think it's an exponential function rather than linear
+     - Found that it is creating a tempo map for each event, I need to modify it to where it only uses one tempoMap
+- Add drum track support (easy)
+  - Have to find each precussion sound manually
+  - 16/46 (most common drum sounds first)
+    - Havn't tuned the sounds to their final point
+    - Might experiment with double sounds
+- ~~Fix merging tracks that don't end at the same time (easy)~~ done
+- ~~Look into fixing volume scale (easy)~~ done
+  - ~~I think it's an exponential function rather than linear~~ 0-1 is volume, 1-3 is max volume but increases in range
+- ~~Added some simple logs~~ (easy) done
 - Clean up my messy code lol (hard :P)
 
 # Future Features

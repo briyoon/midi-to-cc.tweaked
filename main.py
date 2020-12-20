@@ -1,6 +1,11 @@
+import logging
+import traceback
 import midi
 from generalMidi import generalMidiInstList, percussionMidiInstList, noteBlockRangeStart
-from midi_timings import getEventTime
+from midi_timings import getEventTime, getTempoMap
+
+
+logging.basicConfig(filename='logs.log', filemode='w', level=logging.DEBUG)
 
 
 # objext for midi file meta
@@ -16,7 +21,6 @@ class MidiMeta:
 # discovered that each meta event will have a meta command. I am using this to find the vars above.
 # THIS WILL CHANGE DEPENDING ON WHAT LIBRARY YOU USE (you basically have a choice between this and the mido library for python)
 def scrapeMeta(pattern):
-    # returnMeta = False
     midiMeta = MidiMeta(0, 0, 0, 0)
     try:
         # ticks per beat is found at the top of midi data
@@ -26,14 +30,14 @@ def scrapeMeta(pattern):
                 # meta command for time signature = 88
                 if x.metacommand == 88:
                     midiMeta.timeSig = f"{x.numerator}/{x.denominator}"
-                # meta command for BPM = 81
-                # set tempo command also has micro seconds per beat
+                # meta command for set tempo = 81
+                # set tempo command has bpm and micro seconds per beat
                 elif x.metacommand == 81:
                     midiMeta.BPM = x.bpm
                     midiMeta.MSPB = x.mpqn
                     return midiMeta
     except AttributeError:
-        print("attribute error")
+        logging.warning("Scrape Meta: attribute error [may not be able to finish conversion]")
 
 
 # scrapes tracks from midi file
@@ -74,27 +78,27 @@ def scrapeTracks(pattern):
         # if track has a note in it, print info about track
         # it also saves it to mitiTracks dict with proper naming
         if detectNote:
-            # print(f"Detected note in track {track}")
+            logging.info(f"Scrape Tracks: Detected note in track {track}")
             # if percussion track, name it drums
             # has a counter to adjust for multiple drum tracks
             if detectPercussion:
                 midiTracks[f"Drums {drumNum}"] = pattern[track]
                 drumNum += 1
-                # print(f"    Track {track} is a drum track")
+                logging.info(f"Scrape Tracks: Track {track} is a drum track")
             else:
                 # if instrument change detected,
                 # print instrument name and save to midiTracks
                 if detectProgram:
                     midiTracks[instrumentName] = pattern[track]
-                    # print(f"    Track {track}'s name is {instrumentName}")
+                    logging.info(f"Scrape Tracks: Track {track}'s name is {instrumentName}")
                 # otherwise if no instrument change detected,
                 # grab last track name and append bass onto it
                 # then save to midiTracks
                 # (most likly solution, needs more testing)
                 else:
                     midiTracks[[*midiTracks][len(midiTracks) - 1] + " (bass)"] = pattern[track]
-                    # print(f"    No program change in track {track} deteced (usually means its the bass part of the last track)")
-                    # print(f"    Track {track}'s name is {[*midiTracks][track-1] + ' (bass)'}")
+                    logging.info(f"Scrape Tracks: No program change in track {track} deteced (usually means its the bass part of the last track)")
+                    logging.info(f"Scrape Tracks: Track {track}'s name is {[*midiTracks][track-1] + ' (bass)'}")
     return midiTracks
 
 
@@ -107,34 +111,58 @@ def translateMidi(instrumentMidi):
         luaCode = []
         extraTicks = 0
         sleepTemp = 0
-        for event in instrument:
-            if event.name != "Note On":
-                extraTicks += event.tick
-            else:
-                minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrumentName]*12)
-                # sleep = round((event.tick + extraTicks) / meta.TPB / (meta.BPM/60), 8)
-                sleep = getEventTime(pattern, event)
-
-                # This while loop checks if a note in a chord is just below the 2 octave range and moves it up an octave.
-                # This is technically not the same chord and is called an inverted chord but its fine for what you need.
-                while minecraftPitch < 0:
-                    minecraftPitch += 12
-                # also checks if the note is too high
-                while minecraftPitch > 24:
-                    minecraftPitch -= 12
-                # if there is sleep and note plays, write the sleep amount and note
-                if sleep-sleepTemp != 0 and event.velocity != 0:
-                    luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})\n")
-                    luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
-                    extraTicks = 0
-                    sleepTemp = sleep
-                # if the note has no volume, add ticks
-                elif 3/127 * event.velocity == 0:
+        # if it is a drum track, convert with sepcial rules
+        if instrumentName == "Drums":
+            for event in instrument:
+                if event.name != "Note On":
                     extraTicks += event.tick
-                # else write the rest of the chord
                 else:
-                    luaCode.append(f"speaker.playNote('{instrumentName}', {round(3/127 * event.velocity, 8)}, {minecraftPitch})\n")
-        instrumentLua.append(luaCode)
+                    drumNote = percussionMidiInstList[event.pitch-35].split(":")
+                    sleep = getEventTime(pattern, event)
+                    logging.debug(f"Translate MIDI: Sound: {drumNote[0]}, Pitch: {drumNote[1]}, Timing: {sleep}")
+
+                    # if there is sleep and note plays, write the sleep amount and note
+                    if sleep-sleepTemp != 0 and event.velocity != 0:
+                        luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})\n")
+                        luaCode.append(f"speaker.playNote('{drumNote[0]}', {round(event.velocity / 127, 8)}, {drumNote[1]})\n")
+                        extraTicks = 0
+                        sleepTemp = sleep
+                    # if the note has no volume, add ticks
+                    elif event.velocity == 0:
+                        extraTicks += event.tick
+                    # else write the rest of drumkit
+                    else:
+                        luaCode.append(f"speaker.playNote('{drumNote[0]}', {round(event.velocity / 127, 8)}, {drumNote[1]})\n")
+            instrumentLua.append(luaCode)
+        else:
+            for event in instrument:
+                if event.name != "Note On":
+                    extraTicks += event.tick
+                else:
+                    minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrumentName]*12)
+                    sleep = getEventTime(pattern, event)
+                    logging.debug(f"Translate MIDI: Sound: {instrumentName}, Pitch: {minecraftPitch}, Timing: {sleep}")
+
+                    # This while loop checks if a note in a chord is just below the 2 octave range and moves it up an octave.
+                    # This is technically not the same chord and is called an inverted chord but its fine for what you need.
+                    while minecraftPitch < 0:
+                        minecraftPitch += 12
+                    # also checks if the note is too high
+                    while minecraftPitch > 24:
+                        minecraftPitch -= 12
+                    # if there is sleep and note plays, write the sleep amount and note
+                    if sleep-sleepTemp != 0 and event.velocity != 0:
+                        luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})\n")
+                        luaCode.append(f"speaker.playNote('{instrumentName}', {round(event.velocity / 127, 8)}, {minecraftPitch})\n")
+                        extraTicks = 0
+                        sleepTemp = sleep
+                    # if the note has no volume, add ticks
+                    elif event.velocity == 0:
+                        extraTicks += event.tick
+                    # else write the rest of the chord
+                    else:
+                        luaCode.append(f"speaker.playNote('{instrumentName}', {round(event.velocity / 127, 8)}, {minecraftPitch})\n")
+            instrumentLua.append(luaCode)
     return instrumentLua
 
 
@@ -151,36 +179,48 @@ def merge(mergeA, mergeB):
     timeA = 0
     timeB = 0
     merged = []
-    try:
-        # while True:
-        while indexA in range(len(mergeA)) or indexB in range(len(mergeB)):
-            if "playNote" in mergeA[indexA]:
-                merged.append(mergeA[indexA])
-                indexA += 1
-            elif "playNote" in mergeB[indexB]:
-                merged.append(mergeB[indexB])
-                indexB += 1
-            elif round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8) < round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8):
-                # print(str(round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8)) + " is less then " + str(round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8)))
-                merged.append(f"os.sleep({round(float(mergeA[indexA].strip('os.sleep()')) - float(timeA), 8)})")
-                timeB += float(mergeA[indexA].strip("os.sleep()")) - float(timeA)
-                timeA = 0
-                indexA += 1
-            elif round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8) > round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8):
-                # print(str(round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8)) + " is greater then " + str(round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8)))
-                merged.append(f"os.sleep({round(float(mergeB[indexB].strip('os.sleep()')) - float(timeB), 8)})")
-                timeA += float(mergeB[indexB].strip("os.sleep()")) - float(timeB)
-                indexB += 1
-                timeB = 0
-            else:
-                merged.append("os.sleep({})".format(float(mergeA[indexA].strip("os.sleep()")) - timeA))
-                timeA = 0
-                timeB = 0
-                indexA += 1
-                indexB += 1
-    except IndexError:
-        print("finished")
-        return merged
+    while indexA in range(len(mergeA)) or indexB in range(len(mergeB)):
+        # check if it is out of index
+        try:
+            mergeA[indexA]
+        # if out of index, add the rest of the other list
+        except IndexError:
+            for x in range(indexB, len(mergeB)):
+                merged.append(mergeB[x])
+            logging.info("Merge: Merge complete")
+            return merged
+        try:
+            mergeB[indexB]
+        except IndexError:
+            for x in range(indexA, len(mergeA)):
+                merged.append(mergeA[x])
+            logging.info("Merge: Merge complete")
+            return merged
+        if "playNote" in mergeA[indexA]:
+            merged.append(mergeA[indexA])
+            indexA += 1
+        elif "playNote" in mergeB[indexB]:
+            merged.append(mergeB[indexB])
+            indexB += 1
+        elif round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8) < round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8):
+            logging.debug(f"Merge: {str(round(float(mergeA[indexA].strip('os.sleep()')) - float(timeA), 8))} is less then {str(round(float(mergeB[indexB].strip('os.sleep()')) - float(timeB), 8))}")
+            merged.append(f"os.sleep({round(float(mergeA[indexA].strip('os.sleep()')) - float(timeA), 8)})")
+            timeB += float(mergeA[indexA].strip("os.sleep()")) - float(timeA)
+            timeA = 0
+            indexA += 1
+        elif round(float(mergeA[indexA].strip("os.sleep()")) - float(timeA), 8) > round(float(mergeB[indexB].strip("os.sleep()")) - float(timeB), 8):
+            logging.debug(f"Merge: {str(round(float(mergeA[indexA].strip('os.sleep()')) - float(timeA), 8))} is greater then {str(round(float(mergeB[indexB].strip('os.sleep()')) - float(timeB), 8))}")
+            merged.append(f"os.sleep({round(float(mergeB[indexB].strip('os.sleep()')) - float(timeB), 8)})")
+            timeA += float(mergeB[indexB].strip("os.sleep()")) - float(timeB)
+            indexB += 1
+            timeB = 0
+        else:
+            logging.debug("Merge: Equal timing")
+            merged.append("os.sleep({})".format(float(mergeA[indexA].strip("os.sleep()")) - timeA))
+            timeA = 0
+            timeB = 0
+            indexA += 1
+            indexB += 1
 
 
 # Using this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
@@ -204,6 +244,8 @@ for x in range(len(convertWhich)):
     convertWhich[x] = convertWhich[x].replace("-", " ")
     convertWhich[x] = convertWhich[x].split(":")
 
+print("Converting, please wait...")
+
 convertTracks = {}
 for x in tracks:
     for y in range(len(convertWhich)):
@@ -221,5 +263,5 @@ with open(f"{midiName.replace('.mid', '.lua')}", "w+") as f:
     f.write("local speaker = peripheral.find('speaker')\n\n")
     for x in merged:
         f.write(x + "\n")
-    print(f"wrote to {midiName.replace('.mid', '.lua')}")
+    print(f"Wrote to {midiName.replace('.mid', '.lua')}")
     f.close()

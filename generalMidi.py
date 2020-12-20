@@ -129,7 +129,59 @@ generalMidiInstList = [
     "gunshot",
 ]
 
-percussionMidiInstList = []
+percussionMidiInstList = [
+    "bd:0",  # 35 Acoustic Bass Drum
+    "bd:0",  # 36 Electric Bass Drum
+    "hat:0",  # 37 Side Stick
+    "snare:0",  # 38 Acoustic Snare
+    "snare:12",  # 39 Hand Clap
+    "snare:0",  # 40 Electric Snare
+    "bd:4",  # 41 Low Floor Tom
+    "hat:0",  # 42 Closed Hi-hat
+    "bd:8",  # 43 High Floor Tom
+    "hat:1",  # 44 Pedal Hi-hat
+    "bd:12",  # 45 Low Tom
+    "hat:12",  # 46 Open Hi-hat
+    "bd:16",  # 47 Low-Mid Tom
+    "bd:20",  # 48 Hi-Mid Tom
+    "chime:0",  # 49 Crash Cymbal 1
+    "bd:24",  # 50 High Tom
+    "",  # 51 Ride Cymbal 1
+    "",  # 52 Chinese Cymbal
+    "",  # 53 Ride Bell
+    "",  # 54 Tambourine
+    "",  # 55 Splash Cymbal
+    "",  # 56 Cowbell
+    "",  # 57 Crash Cymbal 2
+    "",  # 58 Vibra Slap
+    "",  # 59 Ride Cymbal 2
+    "",  # 60 High Bongo
+    "",  # 61 Low Bongo
+    "",  # 62 Mute High Conga
+    "",  # 63 Open High Conga
+    "",  # 64 Low Conga
+    "",  # 65 High Timbale
+    "",  # 66 Low Timbale
+    "",  # 67 High Agogô
+    "",  # 68 Low Agogô
+    "",  # 69 Cabasa
+    "",  # 70 Maracas
+    "",  # 71 Short Whistle
+    "",  # 72 Long Whistle
+    "",  # 73 Short Guiro
+    "",  # 74 Long Guiro
+    "",  # 75 Claves
+    "",  # 76 High Woodblock
+    "",  # 77 Low Woodblock
+    "",  # 78 Mute Cuica
+    "",  # 79 Open Cuica
+    "",  # 80 Mute Triangle
+    "",  # 81 Open Triangle
+
+
+
+
+]
 
 noteBlockRangeStart = {
     "bass": 1,
@@ -140,7 +192,7 @@ noteBlockRangeStart = {
     "flute": 4,
     "chime": 4,
     "guitar": 1,
-    "xylophone": 4,
+    "xylophone": 1,
     "iron_xylophone": 2,
     "cow_bell": 2,
     "didgeridoo": 0,

@@ -5,7 +5,10 @@ sample_midi/babycold.mid
 sample_midi/wii.mid
     bright-acoustic-piano:harp bright-acoustic-piano-(bass):bass
 
+
 Almost any midi file that has just piano, like acoustic-grand-piano acoustic-grand-piano-(bass), can use harp for the first track and bass for the second.
+
+acoustic-grand-piano:harp acoustic-grand-piano-(bass):bass
 
 This goes for:
 sample_midi/lastchristmas.mid
