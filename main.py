@@ -5,10 +5,7 @@ from generalMidi import generalMidiInstList, percussionMidiInstList, noteBlockRa
 from midi_timings import getEventTime, getTempoMap
 
 
-logging.basicConfig(filename='logs.log', filemode='w', level=logging.DEBUG)
-
-
-# objext for midi file meta
+# object for midi file meta
 class MidiMeta:
     def __init__(self, ticksPerBeat, timeSig, BPM, MSPB):
         self.timeSig = timeSig
@@ -19,7 +16,6 @@ class MidiMeta:
 
 # grabs meta data from midi to find Ticks per Beat, Time Signature, BPM, and Microseconds Per Beat.
 # discovered that each meta event will have a meta command. I am using this to find the vars above.
-# THIS WILL CHANGE DEPENDING ON WHAT LIBRARY YOU USE (you basically have a choice between this and the mido library for python)
 def scrapeMeta(pattern):
     midiMeta = MidiMeta(0, 0, 0, 0)
     try:
@@ -118,13 +114,13 @@ def translateMidi(instrumentMidi):
                     extraTicks += event.tick
                 else:
                     drumNote = percussionMidiInstList[event.pitch-35].split(":")
-                    sleep = getEventTime(pattern, event)
+                    sleep = getEventTime(pattern, event, tempoMap)
                     logging.debug(f"Translate MIDI: Sound: {drumNote[0]}, Pitch: {drumNote[1]}, Timing: {sleep}")
 
                     # if there is sleep and note plays, write the sleep amount and note
                     if sleep-sleepTemp != 0 and event.velocity != 0:
-                        luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})\n")
-                        luaCode.append(f"speaker.playNote('{drumNote[0]}', {round(event.velocity / 127, 8)}, {drumNote[1]})\n")
+                        luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})")
+                        luaCode.append(f"speaker.playNote('{drumNote[0]}', {round(event.velocity / 127, 8)}, {drumNote[1]})")
                         extraTicks = 0
                         sleepTemp = sleep
                     # if the note has no volume, add ticks
@@ -132,7 +128,7 @@ def translateMidi(instrumentMidi):
                         extraTicks += event.tick
                     # else write the rest of drumkit
                     else:
-                        luaCode.append(f"speaker.playNote('{drumNote[0]}', {round(event.velocity / 127, 8)}, {drumNote[1]})\n")
+                        luaCode.append(f"speaker.playNote('{drumNote[0]}', {round(event.velocity / 127, 8)}, {drumNote[1]})")
             instrumentLua.append(luaCode)
         else:
             for event in instrument:
@@ -140,7 +136,7 @@ def translateMidi(instrumentMidi):
                     extraTicks += event.tick
                 else:
                     minecraftPitch = event.pitch-30-(noteBlockRangeStart[instrumentName]*12)
-                    sleep = getEventTime(pattern, event)
+                    sleep = getEventTime(pattern, event, tempoMap)
                     logging.debug(f"Translate MIDI: Sound: {instrumentName}, Pitch: {minecraftPitch}, Timing: {sleep}")
 
                     # This while loop checks if a note in a chord is just below the 2 octave range and moves it up an octave.
@@ -152,8 +148,8 @@ def translateMidi(instrumentMidi):
                         minecraftPitch -= 12
                     # if there is sleep and note plays, write the sleep amount and note
                     if sleep-sleepTemp != 0 and event.velocity != 0:
-                        luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})\n")
-                        luaCode.append(f"speaker.playNote('{instrumentName}', {round(event.velocity / 127, 8)}, {minecraftPitch})\n")
+                        luaCode.append(f"os.sleep({abs(sleep - sleepTemp)})")
+                        luaCode.append(f"speaker.playNote('{instrumentName}', {round(event.velocity / 127, 8)}, {minecraftPitch})")
                         extraTicks = 0
                         sleepTemp = sleep
                     # if the note has no volume, add ticks
@@ -161,36 +157,32 @@ def translateMidi(instrumentMidi):
                         extraTicks += event.tick
                     # else write the rest of the chord
                     else:
-                        luaCode.append(f"speaker.playNote('{instrumentName}', {round(event.velocity / 127, 8)}, {minecraftPitch})\n")
+                        luaCode.append(f"speaker.playNote('{instrumentName}', {round(event.velocity / 127, 8)}, {minecraftPitch})")
             instrumentLua.append(luaCode)
     return instrumentLua
 
 
-# And now the big boy merger, this is just some annoying math that you can copy part for part.
-# I still need to fix the while statement, right now it'll cut the end off of a song.
-# You can delete the print statments if you want, those were for debugging.
+# Merge function for merging two lists together sorted by os.sleep() length
 def merge(mergeA, mergeB):
-    for x in range(len(mergeA)):
-        mergeA[x] = mergeA[x].strip("\n")
-    for x in range(len(mergeB)):
-        mergeB[x] = mergeB[x].strip("\n")
     indexA = 0
     indexB = 0
     timeA = 0
     timeB = 0
     merged = []
     while indexA in range(len(mergeA)) or indexB in range(len(mergeB)):
-        # check if it is out of index
+        # check if listA is out of index
         try:
             mergeA[indexA]
-        # if out of index, add the rest of the other list
+        # if out of index, add the rest of listB
         except IndexError:
             for x in range(indexB, len(mergeB)):
                 merged.append(mergeB[x])
             logging.info("Merge: Merge complete")
             return merged
+        # check if listB is out of index
         try:
             mergeB[indexB]
+        # if out of index, add the rest of listA
         except IndexError:
             for x in range(indexA, len(mergeA)):
                 merged.append(mergeA[x])
@@ -223,45 +215,62 @@ def merge(mergeA, mergeB):
             indexB += 1
 
 
-# Using this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
+# takes all tracks and a list of tracks to convert
+def convert(tracks, convertList):
+    convertTracks = {}
+    for x in tracks:
+        for y in range(len(convertList)):
+            if x == convertList[y][0]:
+                convertTracks[convertList[y][1]] = tracks[x]
+
+    luaCommands = translateMidi(convertTracks)
+
+    merged = luaCommands[0]
+    for x in range(1, len(luaCommands)):
+        merged = merge(merged, luaCommands[x])
+
+    return merged
+
+
+# Use this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
 global pattern
 global meta
-# global tempoMap
+global tempoMap
+
+# Quick logging setup
+logging.basicConfig(filename='logs.log', filemode='w', level=logging.DEBUG)
+
+# get midi path and scrape meta and tracks
 midiName = input("Input midi file path: ")
 pattern = midi.read_midifile(midiName)
 meta = scrapeMeta(pattern)
 tracks = scrapeTracks(pattern)
-# tempoMap = getTempoMap(pattern)
-print(f"Found {len(tracks)} tracks:")
 
+# change ticks to absolute and get tempo map then change ticks back to relative
+pattern.make_ticks_abs()
+tempoMap = getTempoMap(pattern)
+pattern.make_ticks_rel()
+
+# display found tracks and ask which tracks should be converted
+print(f"Found {len(tracks)} tracks:")
 for x in tracks:
     print("    " + x)
-convertWhich = input(
+convertList = input(
     "Please type which tracks you would like to convert with a minecraft sound:\n\
-Example: 'piano:harp brass-section:bit'\n(for a list of minecraft sound names please go to\
-https://minecraft.gamepedia.com/Note_Block)\nPLEASE DO NOT CONVERT A DRUM TRACK YET\n").lower().split()
-for x in range(len(convertWhich)):
-    convertWhich[x] = convertWhich[x].replace("-", " ")
-    convertWhich[x] = convertWhich[x].split(":")
-
+Example: 'piano:harp brass-section:bit drums:drums'\n(for a list of minecraft sound names please go to\
+https://minecraft.gamepedia.com/Note_Block)\nDRUMS ARE UNTESTED\n").lower().split()
+for x in range(len(convertList)):
+    convertList[x] = convertList[x].replace("-", " ")
+    convertList[x] = convertList[x].split(":")
 print("Converting, please wait...")
 
-convertTracks = {}
-for x in tracks:
-    for y in range(len(convertWhich)):
-        if x == convertWhich[y][0]:
-            convertTracks[convertWhich[y][1]] = tracks[x]
+# take all tracks, and a list of tracks to converted and return a merged list (in correct time order) of lua code
+merged = convert(tracks, convertList)
 
-luaCommands = []
-luaCommands = translateMidi(convertTracks)
-
-merged = luaCommands[0]
-for x in range(1, len(luaCommands)):
-    merged = merge(merged, luaCommands[x])
-
+# write to output file and tell user
 with open(f"{midiName.replace('.mid', '.lua')}", "w+") as f:
     f.write("local speaker = peripheral.find('speaker')\n\n")
     for x in merged:
         f.write(x + "\n")
-    print(f"Wrote to {midiName.replace('.mid', '.lua')}")
+    print(f"Finished, wrote to {midiName.replace('.mid', '.lua')}")
     f.close()

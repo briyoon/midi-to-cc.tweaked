@@ -26,11 +26,10 @@ def getTempoMap(pattern, maxTick=None):
 
 # return timing of a single event, from a given the pattern,
 # using the track and event number
-def getEventTime(pattern, event):
+def getEventTime(pattern, event, tempoMap):
     relative = pattern.tick_relative
     pattern.make_ticks_abs()
     maxTick = event.tick
-    tempoMap = getTempoMap(pattern, maxTick)
     pattern.make_ticks_rel()
 
     tick = time = 0
