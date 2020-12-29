@@ -232,45 +232,46 @@ def convert(tracks, convertList):
     return merged
 
 
-# Use this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
-global pattern
-global meta
-global tempoMap
+if __name__ == "__main__":
+    # Use this branch of 'python-midi' for python3 (https://github.com/sniperwrb/python-midi)
+    global pattern
+    global meta
+    global tempoMap
 
-# Quick logging setup
-logging.basicConfig(filename='logs.log', filemode='w', level=logging.DEBUG)
+    # Quick logging setup
+    logging.basicConfig(filename='logs.log', filemode='w', level=logging.DEBUG)
 
-# get midi path and scrape meta and tracks
-midiName = input("Input midi file path: ")
-pattern = midi.read_midifile(midiName)
-meta = scrapeMeta(pattern)
-tracks = scrapeTracks(pattern)
+    # get midi path and scrape meta and tracks
+    midiName = input("Input midi file path: ")
+    pattern = midi.read_midifile(midiName)
+    meta = scrapeMeta(pattern)
+    tracks = scrapeTracks(pattern)
 
-# change ticks to absolute and get tempo map then change ticks back to relative
-pattern.make_ticks_abs()
-tempoMap = getTempoMap(pattern)
-pattern.make_ticks_rel()
+    # change ticks to absolute and get tempo map then change ticks back to relative
+    pattern.make_ticks_abs()
+    tempoMap = getTempoMap(pattern)
+    pattern.make_ticks_rel()
 
-# display found tracks and ask which tracks should be converted
-print(f"Found {len(tracks)} tracks:")
-for x in tracks:
-    print("    " + x)
-convertList = input(
-    "Please type which tracks you would like to convert with a minecraft sound:\n\
-Example: 'piano:harp brass-section:bit drums:drums'\n(for a list of minecraft sound names please go to\
-https://minecraft.gamepedia.com/Note_Block)\nDRUMS ARE UNTESTED\n").lower().split()
-for x in range(len(convertList)):
-    convertList[x] = convertList[x].replace("-", " ")
-    convertList[x] = convertList[x].split(":")
-print("Converting, please wait...")
+    # display found tracks and ask which tracks should be converted
+    print(f"Found {len(tracks)} tracks:")
+    for x in tracks:
+        print("    " + x)
+    convertList = input(
+        "Please type which tracks you would like to convert with a minecraft sound:\n\
+    Example: 'piano:harp brass-section:bit drums:drums'\n(for a list of minecraft sound names please go to\
+    https://minecraft.gamepedia.com/Note_Block)\nDRUMS ARE UNTESTED\n").lower().split()
+    for x in range(len(convertList)):
+        convertList[x] = convertList[x].replace("-", " ")
+        convertList[x] = convertList[x].split(":")
+    print("Converting, please wait...")
 
-# take all tracks, and a list of tracks to converted and return a merged list (in correct time order) of lua code
-merged = convert(tracks, convertList)
+    # take all tracks, and a list of tracks to converted and return a merged list (in correct time order) of lua code
+    merged = convert(tracks, convertList)
 
-# write to output file and tell user
-with open(f"{midiName.replace('.mid', '.lua')}", "w+") as f:
-    f.write("local speaker = peripheral.find('speaker')\n\n")
-    for x in merged:
-        f.write(x + "\n")
-    print(f"Finished, wrote to {midiName.replace('.mid', '.lua')}")
-    f.close()
+    # write to output file and tell user
+    with open(f"{midiName.replace('.mid', '.lua')}", "w+") as f:
+        f.write("local speaker = peripheral.find('speaker')\n\n")
+        for x in merged:
+            f.write(x + "\n")
+        print(f"Finished, wrote to {midiName.replace('.mid', '.lua')}")
+        f.close()
